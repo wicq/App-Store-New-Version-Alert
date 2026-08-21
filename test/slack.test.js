@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { buildPayload, sendNotification } from "../src/lib/slack.js";
+import { buildPayload, formatFileSize, formatReleaseDate, sendNotification } from "../src/lib/slack.js";
 
 const APP = {
   appId: "444555666",
@@ -27,11 +27,13 @@ test("buildPayload is flat and entirely made of strings", () => {
     "app_store_url",
     "bundle_id",
     "file_size_bytes",
+    "file_size_mb",
     "icon_url",
     "minimum_ios",
     "new_version",
     "old_version",
     "release_date",
+    "release_date_display",
     "release_notes",
   ]);
   for (const value of Object.values(payload)) assert.equal(typeof value, "string");
@@ -49,6 +51,40 @@ test("buildPayload tolerates missing optional metadata", () => {
   const payload = buildPayload({ app: { version: "1.0.0" }, oldVersion: undefined });
   assert.equal(payload.old_version, "");
   assert.equal(payload.release_notes, "");
+  assert.equal(payload.file_size_mb, "");
+  assert.equal(payload.release_date_display, "");
+});
+
+test("buildPayload carries display-ready size and date for Slack", () => {
+  const payload = buildPayload({ app: APP, oldVersion: "7.135.0" });
+  assert.equal(payload.file_size_bytes, "512500736");
+  assert.equal(payload.file_size_mb, "488.8 MB");
+  assert.equal(payload.release_date, "2026-08-18T14:00:10Z");
+  assert.equal(payload.release_date_display, "August 18, 2026");
+});
+
+test("formatFileSize switches to GB for very large apps", () => {
+  assert.equal(formatFileSize("512500736"), "488.8 MB");
+  assert.equal(formatFileSize(3_221_225_472), "3.00 GB");
+});
+
+test("formatFileSize returns an empty string for unusable input", () => {
+  assert.equal(formatFileSize(""), "");
+  assert.equal(formatFileSize(undefined), "");
+  assert.equal(formatFileSize("not a number"), "");
+  assert.equal(formatFileSize(0), "");
+});
+
+test("formatReleaseDate renders the UTC calendar day", () => {
+  // 00:30Z would roll back a day in a negative-offset local zone; UTC must win.
+  assert.equal(formatReleaseDate("2026-08-18T00:30:00Z"), "August 18, 2026");
+  assert.equal(formatReleaseDate("2026-01-01T23:59:59Z"), "January 1, 2026");
+});
+
+test("formatReleaseDate returns an empty string for unusable input", () => {
+  assert.equal(formatReleaseDate(""), "");
+  assert.equal(formatReleaseDate(undefined), "");
+  assert.equal(formatReleaseDate("not a date"), "");
 });
 
 test("sendNotification posts JSON once on success", async () => {

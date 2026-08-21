@@ -54,15 +54,26 @@ variables (all of type *text*):
 | `bundle_id` | Bundle identifier |
 | `old_version` | Previously observed version |
 | `new_version` | Newly detected version |
-| `release_date` | Release date of the current version |
+| `release_date` | Release date of the current version, ISO-8601 (`2026-08-18T14:00:10Z`) |
+| `release_date_display` | Same date, ready to read (`August 18, 2026`) |
 | `release_notes` | Release notes (truncated to 2,500 characters) |
 | `app_store_url` | App Store URL |
 | `icon_url` | App icon URL |
 | `minimum_ios` | Minimum supported iOS version |
-| `file_size_bytes` | Download size in bytes |
+| `file_size_bytes` | Download size in bytes (`512500736`) |
+| `file_size_mb` | Same size, ready to read (`488.8 MB`) |
 
 Message layout lives in Slack, not in this repository — the script only sends
-data. Copy the generated request URL; it is a credential.
+data. The two `_display`/`_mb` fields are the exception: Workflow Builder cannot
+transform a variable, so a readable date and size are pre-formatted here rather
+than left as an ISO timestamp and a raw byte count. Use whichever pair suits
+your message; Slack silently drops any variable it was not told about, so the
+key names must match exactly.
+
+Label the variables in the Slack message step (`*Version:* {{old_version}} →
+{{new_version}}`), or the message arrives as an unlabelled stack of values.
+
+Copy the generated request URL; it is a credential.
 
 ### 2. Add the repository secrets
 
