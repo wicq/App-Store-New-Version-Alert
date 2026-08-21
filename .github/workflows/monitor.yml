@@ -1,0 +1,71 @@
+name: Competitor Version Monitor
+
+on:
+  schedule:
+    # Every 5 minutes. GitHub does not guarantee exact timing, so treat
+    # detection as near-real-time rather than real-time.
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Detect changes without calling Slack"
+        type: boolean
+        default: false
+
+# contents: write is required only to persist the (digest-keyed) state file.
+permissions:
+  contents: write
+
+# Never let two polling runs interleave: they would race on the state file.
+concurrency:
+  group: competitor-version-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: Monitor competitors
+        id: monitor
+        run: node src/monitor.js
+        env:
+          COMPETITOR_APP_IDS: ${{ secrets.COMPETITOR_APP_IDS }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          STATE_SALT: ${{ secrets.STATE_SALT }}
+          DRY_RUN: ${{ inputs.dry_run }}
+
+      # Runs even when the monitor exited non-zero: a change that was delivered
+      # to Slack before the failure must still be recorded, or it would be
+      # announced again on the next run.
+      - name: Persist observed versions
+        if: always()
+        run: |
+          if [ -z "$(git status --porcelain state/)" ]; then
+            echo "No state change to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add state/
+
+          # The state file holds only digests and version strings, so the commit
+          # itself reveals nothing about which apps are tracked.
+          git commit -m "chore(state): update observed versions [skip ci]"
+
+          for attempt in 1 2 3; do
+            if git push; then
+              exit 0
+            fi
+            echo "Push failed (attempt ${attempt}); rebasing on the latest state."
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" || exit 1
+          done
+          echo "Unable to push the updated state after 3 attempts."
+          exit 1

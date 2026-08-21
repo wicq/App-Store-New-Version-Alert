@@ -1,0 +1,8 @@
+node_modules/
+*.log
+.env
+.env.*
+.DS_Store
+
+# Local experiments must never leak the tracked app list.
+state/local*.json
