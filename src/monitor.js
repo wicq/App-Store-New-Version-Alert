@@ -13,6 +13,7 @@
  */
 
 import { lookupApp } from "./lib/appstore.js";
+import { classifyObservation } from "./lib/changes.js";
 import { loadConfig, secretsOf } from "./lib/config.js";
 import { mapWithConcurrency } from "./lib/concurrency.js";
 import { ConfigError, StateError } from "./lib/errors.js";
@@ -76,29 +77,44 @@ async function run() {
     for (const failure of failed) log.warn(`Lookup failure detail: ${failure.message}`);
   }
 
-  // 2. Compare against stored versions.
-  const baselines = [];
+  // 2. Compare against stored versions, gated on the release date so a stale
+  //    snapshot from Apple's caches cannot look like a new (or reverted) release.
+  const silent = [];
   const changes = [];
+  const ignored = [];
   for (const { key, app } of succeeded) {
-    const stored = state.apps[key]?.version;
-    if (!stored) {
-      baselines.push({ key, app });
-    } else if (stored !== app.version) {
-      changes.push({ key, app, oldVersion: stored });
+    const stored = state.apps[key];
+    const { action, reason } = classifyObservation({ stored, app });
+    if (action === "notify") {
+      changes.push({ key, app, oldVersion: stored.version, reason });
+    } else if (action === "store") {
+      silent.push({ key, app, reason });
+    } else if (reason !== "unchanged") {
+      // "unchanged" is the steady state for every app that did not ship; only
+      // a reading we actively distrusted is worth counting here.
+      ignored.push(reason);
     }
   }
 
   let stateDirty = false;
   const stamp = () => new Date().toISOString();
+  const entryFor = (app) => ({
+    version: app.version,
+    release_date: app.releaseDate ?? "",
+    detected_at: stamp(),
+  });
 
-  // First run for an app: remember the version, stay quiet (spec: no backfill alerts).
-  if (baselines.length > 0) {
-    for (const { key, app } of baselines) {
-      state.apps[key] = { version: app.version, detected_at: stamp() };
-    }
+  // First sighting, or an entry with no recorded release date: remember the
+  // current reading and stay quiet (spec: no backfill alerts).
+  if (silent.length > 0) {
+    for (const { key, app } of silent) state.apps[key] = entryFor(app);
     await writeState(config.stateFile, state);
     stateDirty = true;
-    log.info(`${baselines.length} application(s) had no baseline; current version stored silently.`);
+    log.info(`${silent.length} application(s) recorded silently (${summarizeReasons(silent.map((s) => s.reason))}).`);
+  }
+
+  if (ignored.length > 0) {
+    log.info(`${ignored.length} reading(s) ignored (${summarizeReasons(ignored)}).`);
   }
 
   log.info(`${changes.length} version change(s) detected.`);
@@ -120,7 +136,7 @@ async function run() {
       notified += 1;
       // State advances per delivered notification, so a later failure cannot
       // resend an already-announced release.
-      state.apps[change.key] = { version: change.app.version, detected_at: stamp() };
+      state.apps[change.key] = entryFor(change.app);
       await writeState(config.stateFile, state);
       stateDirty = true;
       log.info(`Slack notification sent successfully (${notified}/${changes.length}).`);
@@ -138,7 +154,8 @@ async function run() {
       `apps checked: ${config.appIds.length}`,
       `successful lookups: ${succeeded.length}`,
       `failed lookups: ${failed.length}`,
-      `new baselines: ${baselines.length}`,
+      `recorded silently: ${silent.length}`,
+      `stale readings ignored: ${ignored.length}`,
       `version changes: ${changes.length}`,
       `slack notifications: ${notified}`,
       `slack failures: ${notificationFailures.length}`,

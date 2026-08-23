@@ -31,7 +31,8 @@ compare with stored version
 2. Each ID is looked up on `https://itunes.apple.com/lookup`, sequentially for
    short lists and with a small concurrency limit for longer ones.
 3. The returned `version` is compared with the last observed version in
-   [`state/versions.json`](state/versions.json).
+   [`state/versions.json`](state/versions.json), gated on
+   `currentVersionReleaseDate` (see [Stale snapshots](#stale-snapshots)).
 4. On the first sighting of an app the current version is stored **without**
    notifying, so deploying the monitor does not announce every app at once.
 5. On a change, a flat JSON payload is POSTed to a Slack Workflow Builder
@@ -116,6 +117,7 @@ often it polls, and how many apps are tracked.
   "apps": {
     "3c57d294edfb37ce776859780fa2e072": {
       "version": "7.136.0",
+      "release_date": "2026-08-18T14:00:10Z",
       "detected_at": "2026-08-18T14:05:00Z"
     }
   }
@@ -128,6 +130,34 @@ reached Slack is never re-sent, even if a later step in the same run fails.
 
 If the state file is ever lost, the next run re-baselines every app silently: no
 duplicate alerts, but one release could be missed in that window.
+
+## Stale snapshots
+
+Apple's Lookup API sits behind caches that do not all expire together, so the
+same query can return an older snapshot minutes after returning a newer one.
+Comparing `version` alone turns that into a stream of false alerts flipping
+between two versions - observed in production on 2026-08-23, where one app
+alternated between `1.81.0` (released Aug 13) and `1.82.0` (released Aug 23)
+three times in 90 minutes, each snapshot internally consistent right down to the
+file size and icon URL.
+
+Releases only move forward in time, so `currentVersionReleaseDate` is the
+ordering signal. Each reading is classified in
+[`src/lib/changes.js`](src/lib/changes.js):
+
+| Stored vs. observed | Outcome |
+| --- | --- |
+| No stored entry | Stored silently (first sighting) |
+| Stored entry has no release date | Re-baselined silently, once |
+| Observed date older | **Ignored** as stale; state untouched |
+| Observed date newer, version differs | Real release: notify, then store |
+| Observed date newer, same version | State refreshed, no notification |
+| Same date, version differs | Ignored as ambiguous - the date cannot resolve it |
+| Same date, same version | Nothing (the steady state) |
+
+A stale reading never advances state, so it cannot cause the next fresh reading
+to be re-announced. A genuine developer rollback still notifies, because
+re-releasing an older version string produces a *newer* release date.
 
 ## Local development
 
@@ -163,13 +193,15 @@ Beyond the three secrets, these environment variables are available (all optiona
 | --- | --- |
 | Apple timeout, 5xx, 429/403, malformed JSON | Retried twice with backoff; other apps unaffected |
 | Unknown app ID (empty result) or missing `version` | That app is reported as failed, the run continues |
+| Stale or contradictory snapshot from Apple | Ignored without notifying or advancing state; counted in the summary |
 | Slack 429/5xx/timeout | Retried (honouring `Retry-After`), then left for the next run |
 | Slack 4xx | Permanent failure; state unchanged so the change is retried |
 | Every lookup failed, or any notification failed | Run exits non-zero to surface a red check |
 | Missing or malformed secrets, unreadable state | Run exits non-zero before any request is made |
 
 Each run ends with a summary line: apps checked, successful and failed lookups,
-new baselines, version changes, notifications sent and failed.
+readings recorded silently, stale readings ignored, version changes,
+notifications sent and failed.
 
 ## Operational notes
 
