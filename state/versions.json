@@ -2,9 +2,9 @@
   "version": 1,
   "apps": {
     "15ce8a05e7bcdea3042f828317607c1a": {
-      "version": "4.62.0",
-      "release_date": "2026-08-21T23:12:04Z",
-      "detected_at": "2026-08-23T23:22:37.282Z"
+      "version": "4.62.1",
+      "release_date": "2026-08-28T01:35:00Z",
+      "detected_at": "2026-08-28T12:08:23.148Z"
     },
     "1c86511359ee3d1e98497883eafe6db5": {
       "version": "1.82.0",
