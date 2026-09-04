@@ -2,9 +2,9 @@
   "version": 1,
   "apps": {
     "15ce8a05e7bcdea3042f828317607c1a": {
-      "version": "4.62.1",
-      "release_date": "2026-08-28T01:35:00Z",
-      "detected_at": "2026-08-28T12:08:23.148Z"
+      "version": "4.64.0",
+      "release_date": "2026-09-03T20:32:09Z",
+      "detected_at": "2026-09-04T01:19:48.353Z"
     },
     "1c86511359ee3d1e98497883eafe6db5": {
       "version": "1.83.0",
@@ -22,9 +22,9 @@
       "detected_at": "2026-09-02T08:00:29.802Z"
     },
     "3d297288145dbc945de72c55ef38a1e7": {
-      "version": "0.0.418",
-      "release_date": "2026-08-31T18:14:36Z",
-      "detected_at": "2026-09-01T01:50:16.721Z"
+      "version": "0.0.419",
+      "release_date": "2026-09-03T21:22:13Z",
+      "detected_at": "2026-09-04T01:19:50.917Z"
     },
     "4868b9b26a8028ffb37573ef4a9af50d": {
       "version": "4.3.9",
@@ -62,9 +62,9 @@
       "detected_at": "2026-08-23T23:22:37.282Z"
     },
     "963b5cd6b46cc9b92568ecef8336201f": {
-      "version": "5.2.3",
-      "release_date": "2026-08-26T18:16:42Z",
-      "detected_at": "2026-08-27T04:34:34.490Z"
+      "version": "5.3.0",
+      "release_date": "2026-09-03T19:11:23Z",
+      "detected_at": "2026-09-04T01:19:49.629Z"
     },
     "c43944e7a2e78b10cd9373c792cc3375": {
       "version": "30.25.0",
