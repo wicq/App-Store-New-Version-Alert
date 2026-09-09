@@ -22,9 +22,9 @@
       "detected_at": "2026-09-02T08:00:29.802Z"
     },
     "3d297288145dbc945de72c55ef38a1e7": {
-      "version": "0.0.419",
-      "release_date": "2026-09-03T21:22:13Z",
-      "detected_at": "2026-09-04T01:19:50.917Z"
+      "version": "0.0.420",
+      "release_date": "2026-09-08T15:27:17Z",
+      "detected_at": "2026-09-09T00:34:51.126Z"
     },
     "4868b9b26a8028ffb37573ef4a9af50d": {
       "version": "4.4.0",
@@ -77,9 +77,9 @@
       "detected_at": "2026-09-07T19:07:31.386Z"
     },
     "ee7b6f820a08a2ec81b5ddbc2f41246b": {
-      "version": "4.33.0",
-      "release_date": "2026-08-26T09:00:09Z",
-      "detected_at": "2026-08-26T18:08:24.061Z"
+      "version": "4.35.0",
+      "release_date": "2026-09-08T09:30:37Z",
+      "detected_at": "2026-09-09T00:34:49.903Z"
     }
   }
 }
